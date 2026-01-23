@@ -1,0 +1,8 @@
+
+path: /home/rokey/ssy_ws/my_data/
+train: train/images
+val: valid/images
+test: test/images
+
+names:
+  0: object  # 실제 클래스명으로 수정하여 사용하세요.

@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>USB Cam Stream</title>
+  </head>
+  <body>
+    <h1>Live Stream</h1>
+    <img src="{{ url_for('video_feed') }}" width="640" />
+    <div style="margin-top:12px;">
+      <a href="{{ url_for('capture') }}">📸 Capture & Save</a>
+      &nbsp;|&nbsp;
+      <a href="{{ url_for('gallery') }}">🖼️ Gallery</a>
+    </div>
+  </body>
+</html>

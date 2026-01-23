@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>APRS - 생산 시설 통합 경비 시스템</title>
+    <style>
+        /* CSS 스타일은 기존과 동일 */
+        body { background-color: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #30363d; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { color: #58a6ff; margin: 0; font-size: 24px; letter-spacing: 2px; }
+        
+        .container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .cam-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        .cam-title { background: #21262d; padding: 10px; font-weight: bold; font-size: 14px; color: #8b949e; }
+        .cam-view { width: 100%; aspect-ratio: 16/9; background: #000; display: flex; align-items: center; justify-content: center; }
+        .cam-view img { width: 100%; height: auto; }
+
+        .log-section { margin-top: 30px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; }
+        .log-section h2 { font-size: 18px; color: #f85149; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { border-bottom: 1px solid #30363d; padding: 10px; text-align: left; color: #8b949e; }
+        td { padding: 10px; border-bottom: 1px solid #21262d; font-family: 'Courier New', monospace; font-size: 14px; }
+        
+        .status-badge { color: #f85149; font-weight: bold; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>APRS: PRODUCTION FACILITY AI SECURITY SYSTEM</h1>
+        <p>생산 시설 통합 경비 AI 자율주행 시스템 관제 센터 (PC3)</p>
+    </div>
+
+    <div class="container">
+        <div class="cam-box">
+            <div class="cam-title">● MAIN HUB (PC3 USB WEB-CAM)</div>
+            <div class="cam-view">
+                <img src="{{ url_for('video_feed', cam_id='Central_Fire') }}">
+            </div>
+        </div>
+
+        <div class="cam-box">
+            <div class="cam-title">● AMR1 (ROBOT2 TOPIC)</div>
+            <div class="cam-view">
+                <img src="{{ url_for('video_feed', cam_id='AMR1') }}">
+            </div>
+        </div>
+
+        <div class="cam-box">
+            <div class="cam-title">● AMR2 (ROBOT3 TOPIC)</div>
+            <div class="cam-view">
+                <img src="{{ url_for('video_feed', cam_id='AMR2') }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="log-section">
+        <h2>⚠ SYSTEM ANOMALY LOG (실시간 센서 이상치 기록)</h2>
+        <table id="log-table">
+            <thead>
+                <tr>
+                    <th>발생 시간</th>
+                    <th>센서 번호 / 소스</th>
+                    <th>탐지 수치</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody id="log-body">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 로그 업데이트 로직은 기존과 동일 (2초 간격 폴링)
+        function updateLogs() {
+            fetch('/api/logs')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    const body = document.getElementById('log-body');
+                    body.innerHTML = '';
+                    data.forEach(log => {
+                        const row = `<tr>
+                            <td>${log.time}</td>
+                            <td>${log.id}</td>
+                            <td>${log.val}</td>
+                            <td class="status-badge">ANOMALY DETECTED</td>
+                        </tr>`;
+                        body.innerHTML += row;
+                    });
+                })
+                .catch(error => console.error('로그 업데이트 오류:', error));
+        }
+        setInterval(updateLogs, 2000);
+        updateLogs();
+    </script>
+</body>
+</html>

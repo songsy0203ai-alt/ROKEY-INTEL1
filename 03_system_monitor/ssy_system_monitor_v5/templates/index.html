@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>APRS Central Dashboard</title>
+  <style>
+    body { background:#0b0f17; color:#e8eefc; font-family: system-ui, sans-serif; margin:18px; }
+    h2 { margin: 0 0 12px; }
+    .row { display:flex; gap:16px; }
+    .card { background:#141b2d; padding:12px; border-radius:14px; flex:1; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+    .badge { padding:6px 10px; border-radius:999px; display:inline-block; font-weight:700; }
+    .bad { background:#b00020; }
+    .good { background:#0a7d3b; }
+    img { width:100%; border-radius:12px; background:#000; }
+    pre { white-space: pre-wrap; word-break: break-word; background:#0f1424; padding:10px; border-radius:12px; }
+    table { width:100%; border-collapse: collapse; }
+    td,th { border-bottom:1px solid #2a3558; padding:7px 6px; font-size:14px; }
+    .muted { opacity:.85; }
+  </style>
+</head>
+<body>
+  <h2>APRS Central Dashboard</h2>
+
+  <div class="row">
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h3 style="margin:0;">Central Fire Cam</h3>
+        <div id="fireBadge" class="badge good">FIRE: OFF</div>
+      </div>
+      <div class="muted" id="fireInfo" style="margin:8px 0 10px;">-</div>
+      <img src="/video_feed/Central_Fire" />
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">AMR1 (robot2)</h3>
+      <img src="/video_feed/AMR1" />
+      <h4 style="margin:10px 0 6px;">Gauge (latest)</h4>
+      <pre id="g1">-</pre>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">AMR2 (robot3)</h3>
+      <img src="/video_feed/AMR2" />
+      <h4 style="margin:10px 0 6px;">Gauge (latest)</h4>
+      <pre id="g2">-</pre>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h3 style="margin:0;">Recent Logs</h3>
+      <div class="muted" id="serverTime">-</div>
+    </div>
+    <table style="margin-top:10px;">
+      <thead>
+        <tr><th>Time</th><th>Sensor</th><th>Type</th><th>Value</th></tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
+
+<script>
+function pretty(obj){
+  try { return JSON.stringify(obj, null, 2); } catch(e){ return String(obj); }
+}
+
+async function refresh(){
+  const st = await fetch('/api/status').then(r=>r.json());
+  document.getElementById('serverTime').textContent = `server: ${st.server_time || '-'}`;
+
+  const alarm = st.alarm || {};
+  const fire = !!alarm.fire;
+  const conf = Number(alarm.fire_conf || 0);
+  const last = alarm.fire_last_ts || '-';
+
+  const badge = document.getElementById('fireBadge');
+  const info = document.getElementById('fireInfo');
+
+  if (fire){
+    badge.className = "badge bad";
+    badge.textContent = `FIRE: ON`;
+    info.textContent = `conf=${conf.toFixed(2)} / last=${last}`;
+    // (2) 화재 시 알람 페이지로 이동
+    window.location.href = "/alarm";
+    return;
+  } else {
+    badge.className = "badge good";
+    badge.textContent = "FIRE: OFF";
+    info.textContent = "-";
+  }
+
+  const g = st.gauges || {};
+  document.getElementById('g1').textContent = pretty(g.AMR1 ?? "-");
+  document.getElementById('g2').textContent = pretty(g.AMR2 ?? "-");
+
+  const logs = await fetch('/api/logs').then(r=>r.json());
+  const tb = document.getElementById('logBody');
+  tb.innerHTML = "";
+  for (const x of logs){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${x.time}</td><td>${x.sensor}</td><td>${x.type}</td><td>${x.value}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+setInterval(refresh, 800);
+refresh();
+</script>
+</body>
+</html>
