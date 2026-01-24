@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>APRS | 통합 시설 경비 시스템</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #161b22;
+            --accent-blue: #00d4ff;
+            --danger-red: #ff4b2b;
+            --text-gray: #8b949e;
+        }
+
+        body { 
+            background: var(--bg-color); 
+            color: white; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* 상단 헤더 */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--accent-blue);
+            padding-bottom: 15px; margin-bottom: 30px;
+        }
+        .header h1 { margin: 0; font-size: 24px; letter-spacing: 2px; color: var(--accent-blue); }
+        .system-status { font-size: 14px; color: #58a6ff; display: flex; align-items: center; }
+        .status-dot { width: 10px; height: 10px; background: #238636; border-radius: 50%; margin-right: 8px; box-shadow: 0 0 10px #238636; }
+
+        /* 모니터링 레이아웃 */
+        .grid-container {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+        }
+
+        .cam-card {
+            background: var(--card-bg);
+            border-radius: 8px; overflow: hidden;
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: transform 0.3s;
+        }
+        .cam-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
+
+        .cam-label {
+            background: #21262d; padding: 10px; font-size: 13px;
+            font-weight: bold; border-bottom: 1px solid #30363d;
+            display: flex; justify-content: space-between;
+        }
+
+        .cam-card img { width: 100%; display: block; filter: brightness(0.9); }
+
+        /* 로그 테이블 섹션 */
+        .log-section { margin-top: 40px; background: var(--card-bg); border-radius: 8px; padding: 20px; border: 1px solid #30363d; }
+        .log-section h2 { font-size: 18px; margin-bottom: 15px; color: var(--danger-red); display: flex; align-items: center; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; color: var(--text-gray); font-size: 13px; padding: 12px; border-bottom: 2px solid #30363d; }
+        td { padding: 12px; font-size: 14px; border-bottom: 1px solid #21262d; }
+        
+        .badge-red { background: rgba(255, 75, 43, 0.1); color: var(--danger-red); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        
+        /* 애니메이션 효과 */
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .fire-alert { animation: blink 1s infinite; color: var(--danger-red); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>INTEGRATED FACILITY SECURITY (APRS)</h1>
+        <div class="system-status">
+            <div class="status-dot"></div>
+            SYSTEM OPERATIONAL | <span id="clock" style="margin-left:10px">00:00:00</span>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        <div class="cam-card">
+            <div class="cam-label"><span>[CH 01] CENTRAL_FIRE</span> <span id="fire-tag">SECURE</span></div>
+            <img src="/video_feed/Central_Fire">
+        </div>
+        <div class="cam-card">
+            <div class="cam-label"><span>[CH 02] AMR_PATROL_01</span> <span>ACTIVE</span></div>
+            <img src="/video_feed/AMR1">
+        </div>
+        <div class="cam-card">
+            <div class="cam-label"><span>[CH 03] AMR_PATROL_02</span> <span>ACTIVE</span></div>
+            <img src="/video_feed/AMR2">
+        </div>
+    </div>
+
+    <div class="log-section">
+        <h2>⚠️ REAL-TIME ANOMALY LOGS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>TIMESTAMP</th>
+                    <th>DETECTION SOURCE</th>
+                    <th>ANOMALY STATUS</th>
+                </tr>
+            </thead>
+            <tbody id="log-table">
+                </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 시계 업데이트
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+
+        // 로그 데이터 업데이트
+        function fetchLogs() {
+            fetch('/api/logs').then(res => res.json()).then(data => {
+                const tbody = document.getElementById('log-table');
+                tbody.innerHTML = data.map(log => `
+                    <tr>
+                        <td style="color: #c9d1d9">${log.time}</td>
+                        <td style="color: var(--accent-blue); font-weight:bold">${log.id}</td>
+                        <td><span class="badge-red">${log.status}</span></td>
+                    </tr>
+                `).join('');
+            });
+        }
+        setInterval(fetchLogs, 2000);
+    </script>
+</body>
+</html>

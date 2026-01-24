@@ -25,8 +25,7 @@
     <div class="card">
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <h3 style="margin:0;">Central Fire Cam</h3>
-        <div id="fireBadge" class="badge good">FIRE: OFF</div>
-      </div>
+        </div>
       <div class="muted" id="fireInfo" style="margin:8px 0 10px;">-</div>
       <img src="/video_feed/Central_Fire" />
     </div>
@@ -65,34 +64,29 @@ function pretty(obj){
 }
 
 async function refresh(){
+  // 1. 화재 상태 및 서버 시간 업데이트
   const st = await fetch('/api/status').then(r=>r.json());
   document.getElementById('serverTime').textContent = `server: ${st.server_time || '-'}`;
 
-  const alarm = st.alarm || {};
-  const fire = !!alarm.fire;
-  const conf = Number(alarm.fire_conf || 0);
-  const last = alarm.fire_last_ts || '-';
-
-  const badge = document.getElementById('fireBadge');
+  const fire = !!st.fire;
+  const conf = Number(st.fire_conf || 0);
+  const last = st.fire_last_ts || '-';
   const info = document.getElementById('fireInfo');
 
   if (fire){
-    badge.className = "badge bad";
-    badge.textContent = `FIRE: ON`;
     info.textContent = `conf=${conf.toFixed(2)} / last=${last}`;
-    // (2) 화재 시 알람 페이지로 이동
     window.location.href = "/alarm";
     return;
   } else {
-    badge.className = "badge good";
-    badge.textContent = "FIRE: OFF";
     info.textContent = "-";
   }
 
-  const g = st.gauges || {};
+  // 2. 게이지 데이터 업데이트
+  const g = await fetch('/api/gauges').then(r=>r.json());
   document.getElementById('g1').textContent = pretty(g.AMR1 ?? "-");
   document.getElementById('g2').textContent = pretty(g.AMR2 ?? "-");
 
+  // 3. 로그 업데이트
   const logs = await fetch('/api/logs').then(r=>r.json());
   const tb = document.getElementById('logBody');
   tb.innerHTML = "";
@@ -103,7 +97,7 @@ async function refresh(){
   }
 }
 
-setInterval(refresh, 800);
+setInterval(refresh, 1000);
 refresh();
 </script>
 </body>

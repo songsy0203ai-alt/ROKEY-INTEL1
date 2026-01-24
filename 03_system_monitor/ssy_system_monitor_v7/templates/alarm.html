@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>APRS ALARM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #141b2d;
+      --text: #e8eefc;
+      --muted: rgba(232,238,252,.75);
+      --red: #d0002b;
+      --green: #0a7d3b;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* 🔥 알람 깜빡임 배경 */
+    .alarm-on { animation: flash 0.7s infinite; }
+    @keyframes flash {
+      0%   { background: #1b0b10; }
+      50%  { background: #3b0a12; }
+      100% { background: #1b0b10; }
+    }
+
+    .wrap { padding: 18px; max-width: 1000px; margin: 0 auto; }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      display: inline-block;
+    }
+    .bad { background: var(--red); }
+    .good { background: var(--green); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: rgba(20, 27, 45, .88);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      backdrop-filter: blur(6px);
+    }
+
+    h1 { margin: 6px 0 8px; font-size: 32px; }
+    h2 { margin: 0 0 10px; font-size: 18px; opacity: .95; }
+    .muted { color: var(--muted); }
+
+    .big {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.35;
+      margin: 10px 0 10px;
+    }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    button, a.btn {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-dark { background: #0f1424; color: var(--text); border: 1px solid rgba(255,255,255,.08); }
+    .btn-outline { background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,.18); }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi .box {
+      background: rgba(15,20,36,.85);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .kpi .label { font-size: 12px; color: var(--muted); }
+    .kpi .val { font-size: 18px; font-weight: 900; margin-top: 3px; }
+
+    img {
+      width: 100%;
+      border-radius: 14px;
+      background: #000;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+
+<body id="body">
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div id="badge" class="badge bad">ALARM</div>
+        <div class="muted" id="serverTime" style="margin-top:6px;">server: -</div>
+      </div>
+
+      <div class="row">
+        <a class="btn btn-dark" href="/">🏠 대시보드</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- 왼쪽: 큰 경고/정보 -->
+      <div class="card">
+        <h1 id="title">🔥 화재 감지!</h1>
+        <div class="big" id="msg">
+          즉시 확인이 필요합니다. 관제 요원이 현장을 확인하세요.
+        </div>
+
+        <div class="kpi">
+          <div class="box">
+            <div class="label">Fire 상태</div>
+            <div class="val" id="fireState">ON</div>
+          </div>
+          <div class="box">
+            <div class="label">Confidence</div>
+            <div class="val" id="fireConf">-</div>
+          </div>
+          <div class="box">
+            <div class="label">Last Detected</div>
+            <div class="val" id="fireLast">-</div>
+          </div>
+          <div class="box">
+            <div class="label">자동 복귀</div>
+            <div class="val" id="autoBack">ON</div>
+          </div>
+        </div>
+
+        <div class="hint">
+          ✅ 알람 소리는 PC3(서버)에서 직접 재생됩니다. (브라우저 소리 기능 제거됨)
+        </div>
+
+        <div class="row" style="margin-top:12px;">
+          <button class="btn-outline" id="btnToggleBack">🔁 자동 복귀 토글</button>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 중앙 카메라 -->
+      <div class="card">
+        <h2>Central Fire Cam</h2>
+        <img src="/video_feed/Central_Fire" />
+        <div class="hint">화재 상태가 ON이면 화면에 경고 문구가 오버레이됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ====== 상태 폴링 ======
+  let autoBack = true;
+  document.getElementById("btnToggleBack").addEventListener("click", () => {
+    autoBack = !autoBack;
+    document.getElementById("autoBack").textContent = autoBack ? "ON" : "OFF";
+  });
+
+  function setAlarmUI(on) {
+    const body = document.getElementById("body");
+    const badge = document.getElementById("badge");
+    const title = document.getElementById("title");
+    const msg = document.getElementById("msg");
+    const fireState = document.getElementById("fireState");
+
+    if (on) {
+      body.classList.add("alarm-on");
+      badge.className = "badge bad";
+      badge.textContent = "ALARM";
+      title.textContent = "🔥 화재 감지!";
+      msg.textContent = "즉시 확인이 필요합니다. 관제 요원이 현장을 확인하세요.";
+      fireState.textContent = "ON";
+    } else {
+      body.classList.remove("alarm-on");
+      badge.className = "badge good";
+      badge.textContent = "SAFE";
+      title.textContent = "✅ 화재 해제됨";
+      msg.textContent = "화재 상태가 해제되었습니다. 대시보드로 복귀합니다.";
+      fireState.textContent = "OFF";
+    }
+  }
+
+  async function refresh() {
+    const st = await fetch("/api/status").then(r => r.json());
+    document.getElementById("serverTime").textContent = `server: ${st.server_time || "-"}`;
+
+    const fire = !!st.fire;
+    const conf = Number(st.fire_conf || 0);
+    const last = st.fire_last_ts || "-";
+
+    document.getElementById("fireConf").textContent = conf ? conf.toFixed(2) : "-";
+    document.getElementById("fireLast").textContent = last;
+
+    setAlarmUI(fire);
+
+    if (!fire && autoBack) {
+      setTimeout(() => window.location.href = "/", 900);
+    }
+  }
+
+  setInterval(refresh, 600);
+  refresh();
+</script>
+</body>
+</html>

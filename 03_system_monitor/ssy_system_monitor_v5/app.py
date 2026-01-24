@@ -67,8 +67,8 @@ latest_gauges = {
     "AMR2": None,          # Robot3 게이지 분석 결과(JSON)
 }
 
-DB_PATH = "/home/rokey/ssy_ws/03_system_monitor/ssy_system_monitor_v5/aprs_system.db"
 
+DB_PATH = '/home/rokey/ssy_ws/03_system_monitor/ssy_system_monitor_v5/aprs_system.db'
 
 # =========================
 # DB 헬퍼 함수
@@ -131,8 +131,8 @@ class CentralBridge(Node):
         self,
         amr1_img_topic="/robot2/oakd/rgb/preview/image_raw",
         amr2_img_topic="/robot3/oakd/rgb/preview/image_raw",
-        amr1_gauge_topic="/robot2/gauge/result",
-        amr2_gauge_topic="/robot3/gauge/result",
+        amr1_gauge_topic="/robot2/gauge_safe_status",
+        amr2_gauge_topic="/robot3/gauge_safe_status",
     ):
         super().__init__("aprs_central_bridge")
         self.bridge = CvBridge()
@@ -383,12 +383,14 @@ def alarm():
 
 @app.route("/video_feed/<cam_id>")
 def video_feed(cam_id):
-    # 각 카메라 ID에 맞는 스트리밍 응답 반환
     return Response(gen_frames(cam_id), mimetype="multipart/x-mixed-replace; boundary=frame")
 
 @app.route("/api/status")
 def api_status():
-    return jsonify(alarm_state)
+    # 서버 시간 추가하여 반환
+    res = alarm_state.copy()
+    res["server_time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return jsonify(res)
 
 @app.route("/api/gauges")
 def api_gauges():
@@ -396,21 +398,16 @@ def api_gauges():
 
 @app.route("/api/logs")
 def api_logs():
-    """
-    [기능] DB에 저장된 최근 이상 로그 20개를 반환
-    [입력] 없음
-    [출력] JSON 형식의 로그 리스트
-    """
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("SELECT timestamp, sensor_id, value FROM anomaly_logs ORDER BY id DESC LIMIT 20")
         rows = c.fetchall()
         conn.close()
-        logs = [{"time": r[0], "id": r[1], "val": r[2]} for r in rows]
+        # index.html의 컬럼명에 맞춰 key 수정 (sensor, value)
+        logs = [{"time": r[0], "sensor": r[1], "type": "ALARM", "value": r[2]} for r in rows]
         return jsonify(logs)
     except Exception as e:
-        # DB 읽기 실패 시 500 에러와 사유 반환
         return jsonify({"error": str(e)}), 500
 
 
@@ -435,7 +432,7 @@ def main():
 
     # 4. 화재 감시 워커 기동
     model_path = '/home/rokey/ssy_ws/03_system_monitor/ssy_system_monitor_v5/fire.pt'
-    cam_index = 1 # 웹캠 포트 번호
+    cam_index = 0 # 웹캠 포트 번호
     fire_worker = FireCameraWorker(
         ros_node=bridge,
         model_path=model_path,
