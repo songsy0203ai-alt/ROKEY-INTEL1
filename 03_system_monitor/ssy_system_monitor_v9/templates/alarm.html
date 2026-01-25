@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>APRS ALARM - Multi Monitor (v8)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #141b2d;
+      --text: #e8eefc;
+      --muted: rgba(232,238,252,.75);
+      --red: #ff4d4d;
+      --green: #00e676;
+    }
+
+    body { margin: 0; font-family: 'Pretendard', system-ui, sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+    
+    /* 알람 발생 시 배경 애니메이션 */
+    .alarm-on { animation: flash 1.5s infinite; }
+    @keyframes flash {
+      0% { background: #0b0f17; }
+      50% { background: #4a0000; }
+      100% { background: #0b0f17; }
+    }
+
+    .wrap { padding: 20px; max-width: 1600px; margin: 0 auto; }
+    
+    .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: var(--panel); padding: 15px; border-radius: 12px; }
+    .badge { padding: 10px 20px; border-radius: 8px; font-weight: 800; font-size: 18px; letter-spacing: 1px; }
+    .bad { background: var(--red); color: white; box-shadow: 0 0 15px var(--red); }
+    .good { background: var(--green); color: #0b0f17; }
+
+    /* 오디오 활성화 안내 */
+    #audio-guide { font-size: 14px; color: var(--red); font-weight: bold; animation: blink 1s infinite; cursor: pointer; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 16px;
+      padding: 16px;
+      transition: transform 0.3s ease;
+    }
+    .card:hover { transform: translateY(-5px); }
+
+    h1 { margin: 0 0 15px; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+    
+    .kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+    .kpi .box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
+    .kpi .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .kpi .val { font-size: 18px; font-weight: 700; color: #fff; }
+
+    img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; background: #000; }
+
+    .btn-outline { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid rgba(255,255,255,0.2); padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn-outline:hover { background: rgba(255,255,255,0.1); }
+  </style>
+</head>
+
+<body id="body">
+  <div class="wrap">
+    <div class="top">
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <div id="badge" class="badge good">SAFE</div>
+        <div>
+          <div id="serverTime" style="font-size: 14px; font-family: monospace;">server: -</div>
+          <div id="audio-guide">⚠️ 사운드를 활성화하려면 화면을 클릭하세요</div>
+        </div>
+      </div>
+      <button class="btn-outline" id="btnToggleBack">자동 복귀: <span id="autoBack">ON</span></button>
+    </div>
+
+    <div class="grid">
+      <div class="card" id="fireCard">
+        <h1>🔥 Central Fire</h1>
+        <img src="/video_feed/Central_Fire" alt="Central Cam" onerror="this.src='https://via.placeholder.com/640x360?text=No+Video+Feed'"/>
+        <div class="kpi">
+          <div class="box"><div class="label">화재 상태</div><div class="val" id="fireState">OFF</div></div>
+          <div class="box"><div class="label">신뢰도</div><div class="val" id="fireConf">-</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h1>🤖 AMR 01</h1>
+        <img src="/video_feed/AMR1" alt="AMR 1 Cam" onerror="this.src='https://via.placeholder.com/640x360?text=AMR1+Offline'"/>
+        <div class="kpi">
+          <div class="box"><div class="label">배터리</div><div class="val" id="amr1Bat">-</div></div>
+          <div class="box"><div class="label">현재 위치</div><div class="val" id="amr1Loc">-</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h1>🤖 AMR 02</h1>
+        <img src="/video_feed/AMR2" alt="AMR 2 Cam" onerror="this.src='https://via.placeholder.com/640x360?text=AMR2+Offline'"/>
+        <div class="kpi">
+          <div class="box"><div class="label">배터리</div><div class="val" id="amr2Bat">-</div></div>
+          <div class="box"><div class="label">현재 위치</div><div class="val" id="amr2Loc">-</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // 트러블슈팅 2번 반영: 정확한 경로 설정
+  const alarmSound = new Audio('/audio/fire.wav'); 
+  alarmSound.loop = true;
+  let audioEnabled = false;
+  let autoBack = true;
+
+  // 브라우저 자동 재생 정책 대응 (첫 클릭 시 권한 획득)
+  document.addEventListener('click', () => {
+    if (!audioEnabled) {
+      alarmSound.play().then(() => {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+        audioEnabled = true;
+        document.getElementById("audio-guide").style.display = "none";
+        console.log("Audio System Ready");
+      }).catch(err => console.error("Audio init failed:", err));
+    }
+  }, { once: true });
+
+  document.getElementById("btnToggleBack").addEventListener("click", () => {
+    autoBack = !autoBack;
+    document.getElementById("autoBack").textContent = autoBack ? "ON" : "OFF";
+  });
+
+  function updateUI(st) {
+    const isFire = !!st.fire;
+    const body = document.getElementById("body");
+    const badge = document.getElementById("badge");
+
+    // 1. 시각적 알람 상태 업데이트
+    if (isFire) {
+      body.classList.add("alarm-on");
+      badge.className = "badge bad";
+      badge.textContent = "ALARM";
+      
+      // 사운드 재생 로직
+      if (audioEnabled && alarmSound.paused) {
+        alarmSound.play().catch(e => console.log("Play failed:", e));
+      }
+    } else {
+      body.classList.remove("alarm-on");
+      badge.className = "badge good";
+      badge.textContent = "SAFE";
+      
+      // 사운드 중지
+      alarmSound.pause();
+      alarmSound.currentTime = 0;
+    }
+
+    // 2. 데이터 업데이트
+    document.getElementById("serverTime").textContent = `server: ${st.server_time || "-"}`;
+    document.getElementById("fireState").textContent = isFire ? "ON" : "OFF";
+    document.getElementById("fireConf").textContent = st.fire_conf ? (Number(st.fire_conf) * 100).toFixed(1) + "%" : "-";
+
+    if(st.amr1) {
+      document.getElementById("amr1Bat").textContent = (st.amr1.battery || "-") + "%";
+      document.getElementById("amr1Loc").textContent = st.amr1.location || "-";
+    }
+    if(st.amr2) {
+      document.getElementById("amr2Bat").textContent = (st.amr2.battery || "-") + "%";
+      document.getElementById("amr2Loc").textContent = st.amr2.location || "-";
+    }
+
+    // 3. 자동 복귀 로직
+    if (!isFire && autoBack) {
+      // 3초간 Safe 상태 유지 확인 후 이동 (너무 빠른 리다이렉션 방지)
+      setTimeout(() => {
+        if (!document.getElementById("body").classList.contains("alarm-on")) {
+          window.location.href = "/";
+        }
+      }, 3000);
+    }
+  }
+
+  async function refresh() {
+    try {
+      // 트러블슈팅 3번 반영: 경로 및 중복 함수 확인된 엔드포인트 호출
+      const response = await fetch("/api/status");
+      if (!response.ok) throw new Error('Network response was not ok');
+      const st = await response.json();
+      updateUI(st);
+    } catch (e) { 
+      console.error("Fetch error:", e); 
+    }
+  }
+
+  setInterval(refresh, 800);
+  refresh();
+</script>
+</body>
+</html>

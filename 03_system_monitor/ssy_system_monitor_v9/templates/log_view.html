@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>System Logs</title>
+  <style>
+    body { background:#0b0f17; color:#e8eefc; font-family: system-ui; margin:20px; }
+    .container { max-width: 1000px; margin: auto; background:#141b2d; padding:30px; border-radius:15px; }
+    table { width:100%; border-collapse: collapse; margin-top:20px; }
+    th, td { border-bottom:1px solid #2a3558; padding:12px; text-align:left; }
+    th { color:#8492a6; }
+    .btn { background:#2a3558; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; display:inline-block; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="btn">← Back to Menu</a>
+    <h1>Recent Anomaly Logs</h1>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Sensor</th><th>Type</th><th>Value</th></tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function refreshLogs() {
+      const logs = await fetch('/api/logs').then(r => r.json());
+      const tb = document.getElementById('logBody');
+      tb.innerHTML = logs.map(x => `
+        <tr>
+          <td>${x.time}</td>
+          <td>${x.sensor}</td>
+          <td>${x.type}</td>
+          <td>${x.value}</td>
+        </tr>
+      `).join('');
+
+      const st = await fetch('/api/status').then(r => r.json());
+      if (st.fire) window.location.href = "/alarm";
+    }
+    setInterval(refreshLogs, 1000);
+    refreshLogs();
+  </script>
+</body>
+</html>
