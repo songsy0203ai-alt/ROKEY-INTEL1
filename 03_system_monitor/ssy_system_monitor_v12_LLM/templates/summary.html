@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { background:#0b0f17; color:#e8eefc; font-family: system-ui; margin:20px; }
+    .container { max-width: 900px; margin: auto; background:#141b2d; padding:40px; border-radius:15px; border: 1px solid #2a3558; }
+    .header { display:flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .btn { background:#2a3558; color:white; padding:10px 20px; border-radius:8px; text-decoration:none; }
+    #summary-result { line-height: 1.8; font-size: 17px; }
+    .loading-spin { color: #4c6ef5; font-weight: bold; text-align: center; padding: 50px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <a href="/" class="btn">← Back to Menu</a>
+      <h2>{{ title }}</h2>
+      <div style="color:#4c6ef5; font-weight:bold;">Powered by Gemini 1.5</div>
+    </div>
+
+    <div id="summary-result">
+      <div class="loading-spin">🤖 Gemini가 오늘자 DB 데이터를 분석 중입니다...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadSummary() {
+      const display = document.getElementById('summary-result');
+      try {
+        const res = await fetch('/api/ai-summary');
+        const data = await res.json();
+        
+        if (data.summary) {
+          // 마크다운 형식을 HTML로 변환하여 출력
+          display.innerHTML = marked.parse(data.summary);
+        } else {
+          display.innerHTML = `<p style="color:#ff4d4d">오류: ${data.error || "분석 실패"}</p>`;
+        }
+      } catch (e) {
+        display.innerHTML = `<p style="color:#ff4d4d">서버 연결 실패</p>`;
+      }
+    }
+
+    // 페이지 로드 시 자동 실행
+    window.onload = loadSummary;
+  </script>
+</body>
+</html>

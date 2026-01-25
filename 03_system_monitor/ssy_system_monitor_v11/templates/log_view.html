@@ -14,34 +14,47 @@
 </head>
 <body>
   <div class="container">
-    <a href="/" class="btn">← Back to Menu</a>
-    <h1>Recent Anomaly Logs</h1>
-    <table>
-      <thead>
-        <tr><th>Time</th><th>Sensor</th><th>Type</th><th>Value</th></tr>
-      </thead>
-      <tbody id="logBody"></tbody>
-    </table>
-  </div>
+  <a href="/" class="btn">← Back to Menu</a>
+  <h1>Recent Anomaly Logs</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Time (시간)</th>
+        <th>Outlier (이상치 여부)</th>
+        <th>Pressure Gauge Value (압력 게이지 값)</th>
+      </tr>
+    </thead>
+    <tbody id="logBody"></tbody>
+  </table>
+</div>
 
-  <script>
-    async function refreshLogs() {
+<script>
+  async function refreshLogs() {
+    try {
       const logs = await fetch('/api/logs').then(r => r.json());
       const tb = document.getElementById('logBody');
+      
+      // log_view.html의 refreshLogs 함수 내부
       tb.innerHTML = logs.map(x => `
         <tr>
           <td>${x.time}</td>
-          <td>${x.sensor}</td>
-          <td>${x.type}</td>
+          <td style="color: ${x.outlier === '이상치' ? '#ff4d4d' : '#00e676'}; font-weight: bold;">
+            ${x.outlier}
+          </td>
           <td>${x.value}</td>
         </tr>
       `).join('');
 
+      // 화재 감지 시 알람 페이지 전환 로직 유지
       const st = await fetch('/api/status').then(r => r.json());
       if (st.fire) window.location.href = "/alarm";
+    } catch (e) {
+      console.error("Log fetch error:", e);
     }
-    setInterval(refreshLogs, 1000);
-    refreshLogs();
-  </script>
+  }
+
+  setInterval(refreshLogs, 1000);
+  refreshLogs();
+</script>
 </body>
 </html>

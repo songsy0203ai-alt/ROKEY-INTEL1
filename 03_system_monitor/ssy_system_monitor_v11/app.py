@@ -211,33 +211,33 @@ def init_db():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        # id, 시간, 게이지값, 이상치여부
         c.execute(
             """CREATE TABLE IF NOT EXISTS anomaly_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT,
-                sensor_id TEXT,
-                value REAL
+                value REAL,
+                outlier TEXT
             )"""
         )
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
-        print(f"[DB 오류] 초기화 실패: {e}")
+        print(f"[DB 오류] {e}")
 
-
-def db_log(sensor_id: str, value: float):
+def db_log(value: float, outlier: str):
     try:
         ts = datetime.datetime.now().isoformat(timespec="seconds")
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute(
-            "INSERT INTO anomaly_logs(timestamp, sensor_id, value) VALUES (?,?,?)",
-            (ts, sensor_id, float(value)),
+            "INSERT INTO anomaly_logs(timestamp, value, outlier) VALUES (?,?,?)",
+            (ts, float(value), outlier),
         )
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"[DB 오류] 로그 기록 실패: {e}")
+        print(f"[DB 오류] {e}")
 
 
 # =========================
@@ -247,8 +247,8 @@ class CentralBridge(Node):
     def __init__(
         self,
         # 기본값을 compressed 토픽으로 변경
-        amr1_img_topic="/pc1/robot2/oakd/rgb/image_raw/compressed",
-        amr2_img_topic="/pc2/robot3/oakd/rgb/image_raw/compressed",
+        amr1_img_topic="/robot2/oakd/rgb/image_raw/compressed",
+        amr2_img_topic="/robot3/oakd/rgb/image_raw/compressed",
         amr1_gauge_topic="/robot2/gauge_safe_status",
         amr2_gauge_topic="/robot3/gauge_safe_status",
     ):
@@ -300,7 +300,7 @@ class CentralBridge(Node):
             "ts": datetime.datetime.now().isoformat(timespec="seconds"),
         }
         latest_gauges["AMR1"] = payload
-        db_log("AMR1_GAUGE_SAFE", 1.0 if msg.data else 0.0)
+        # db_log() 호출 제거 (HTTP 라우트에서 처리함)
 
     def gauge2_cb(self, msg: Bool):
         payload = {
@@ -433,25 +433,15 @@ class FireCameraWorker:
             alarm_state["fire_last_ts"] = datetime.datetime.now().isoformat(timespec="seconds")
 
         if prev != alarm_state["fire"]:
-            status_msg = "발생" if alarm_state["fire"] else "해제"
-            print("\n" + "=" * 50)
-            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] 화재 알람 {status_msg}!")
-            print(f" - 현재 확률: {conf:.2f}")
-            print(f" - ROS 전송: /fire_detected_signal -> {alarm_state['fire']}")
-            print("=" * 50 + "\n")
-
-            # (1) ROS 알람 전파
+            # (1) ROS 알람 전파 (유지)
             self.ros_node.publish_fire(alarm_state["fire"])
 
-            # ✅ (2) PC3 사운드 ON/OFF
+            # (2) PC3 사운드 ON/OFF (유지)
             if self.sound_player:
                 if alarm_state["fire"]:
                     self.sound_player.start()
                 else:
                     self.sound_player.stop()
-
-            # (3) DB 기록
-            db_log("CENTRAL_FIRE", 1.0 if alarm_state["fire"] else 0.0)
 
 
 # =========================
@@ -543,16 +533,49 @@ def api_logs():
         c.execute("SELECT timestamp, sensor_id, value FROM anomaly_logs ORDER BY id DESC LIMIT 20")
         rows = c.fetchall()
         conn.close()
-        logs = [{"time": r[0], "sensor": r[1], "type": "ALARM", "value": r[2]} for r in rows]
+
+        logs = []
+        for r in rows:
+            ts, sensor_id, val = r
+            # 게이지 센서 데이터만 존재하므로 로직 단순화
+            # val이 0.0이면 이상치, 1.0이면 정상치로 판단 ($val \in \{0, 1\}$)
+            outlier_status = "이상치" if val == 0.0 else "정상"
+
+            logs.append({
+                "time": ts,
+                "outlier": outlier_status,
+                "value": f"{val:.2f}"
+            })
         return jsonify(logs)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/log", methods=["POST"])
 def receive_log():
-    # ... (기존 로그 수신 로직 유지)
-    pass
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "fail", "reason": "no data"}), 400
+        
+        # gauge_detect25.py에서 보내는 'value' 추출
+        val = float(data.get("value", 0.0))
+        
+        # [이상치 판단 로직]
+        # 1 < value < 8 이면 정상치, 그 외(0 < value <= 1 또는 value >= 8)는 이상치
+        if 1.0 < val < 8.0:
+            outlier_status = "정상치"
+        elif (0.0 < val <= 1.0) or (val >= 8.0):
+            outlier_status = "이상치"
+        else:
+            outlier_status = "측정불가"
 
+        # DB 기록 수행
+        db_log(val, outlier_status)
+        
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"[서버 오류] 로그 수신 실패: {e}")
+        return jsonify({"status": "error", "reason": str(e)}), 500
 
 # =========================
 # main
