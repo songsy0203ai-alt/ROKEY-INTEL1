@@ -16,7 +16,7 @@ class YOLOFireStartPublisher(Node):
     def __init__(
         self,
         model_path: str,
-        camera_index: int = 1,
+        camera_index: int = 2,
         conf_thres: float = 0.5,
         stable_frames: int = 5,
         scan_max_index: int = 6,
