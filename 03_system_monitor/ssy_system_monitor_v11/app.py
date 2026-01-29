@@ -62,6 +62,11 @@ from cv_bridge import CvBridge
 # =========================
 from ultralytics import YOLO
 
+# =========================
+# [5] Gemini API 사용
+# =========================
+import google.generativeai as genai
+
 
 # =========================
 # Flask App 설정
@@ -332,7 +337,7 @@ class FireCameraWorker:
         self,
         ros_node: CentralBridge,
         model_path: str = "fire.pt",
-        cam_index: int = 1,
+        cam_index: int = 2,
         infer_fps: float = 5.0,
         fire_conf_th: float = 0.55,
         hold_seconds: float = 5.0,
@@ -577,6 +582,61 @@ def receive_log():
         print(f"[서버 오류] 로그 수신 실패: {e}")
         return jsonify({"status": "error", "reason": str(e)}), 500
 
+# ================================
+# Gemini로 오늘의 게이지 현황 요약 받기
+# ================================
+
+# Gemini API 설정
+genai.configure(api_key="AIzaSyAUxxmUwxB1rR_jFob0zIp56I1Q5vquXJ4")
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+# AI 요약용 서브 페이지 렌더링 라우트 추가
+@app.route("/view/summary")
+def view_summary():
+    return render_template("summary.html", title="AI System Report")
+
+# AI 분석 API 엔드포인트 추가
+@app.route("/api/ai-summary")
+def get_ai_summary():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        # 오늘자 게이지 로그 추출 (시간, 값, 상태)
+        c.execute("SELECT timestamp, value, outlier FROM anomaly_logs WHERE timestamp LIKE ? ORDER BY id DESC", (f"{today}%",))
+        rows = c.fetchall()
+        conn.close()
+
+        if not rows:
+            return jsonify({"summary": "오늘 수집된 게이지 데이터가 없어 분석이 불가능합니다."})
+
+        # 데이터 전처리
+        total = len(rows)
+        outliers = [r for r in rows if r[2] == "이상치"]
+        
+        # Gemini용 프롬프트 구성
+        prompt = f"""
+        공장 안전 관리 시스템의 데이터 분석가로서 아래의 오늘자 압력 게이지 로그를 분석하고 보고서를 작성하세요.
+        - 분석 대상 날짜: {today}
+        - 총 점검 횟수: {total}회
+        - 이상치(Outlier) 발생 횟수: {len(outliers)}회
+        - 게이지 정상 범위: $1 < \text{{value}} < 8$
+        - 상세 로그 데이터 (최근순): {rows[:30]} 
+
+        보고서는 반드시 다음 형식을 갖추어야 합니다:
+        1. 📊 **오늘의 안전 현황 요약** (한 문장으로)
+        2. 🔍 **주요 이상 징후 분석** (이상치 발생 시간대 및 값 언급)
+        3. 💡 **현장 관리자 권고 조치** (구체적인 대응 방안)
+        
+        전문적이면서도 직설적인 어조로 작성하세요.
+        """
+
+        response = model.generate_content(prompt)
+        return jsonify({"summary": response.text})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # =========================
 # main
 # =========================
@@ -602,7 +662,7 @@ def main():
     )
 
     model_path = '/home/rokey/ssy_ws/03_system_monitor/ssy_system_monitor_v11/fire.pt'
-    cam_index = 1
+    cam_index = 2
 
     fire_worker = FireCameraWorker(
         ros_node=bridge,
