@@ -149,7 +149,6 @@ AMR 순찰 데이터를 기반으로 **Gemini 1.5 Flash**를 연동한 "오늘�
 | `03_system_monitor/ssy_system_monitor_v12_LLM/app.py` | 시스템 모니터 UI 메인 실행 |
 | `03_system_monitor/ssy_system_monitor_v12_LLM/gauge_final.py` | 게이지 Detection 노드 |
 | `03_system_monitor/ssy_system_monitor_v12_LLM/yolo_fire_start_publisher.py` | Fire Detection 노드 |
-| `06_AMR/` | 경비용 AMR 자율주행 map, yaml 파일 |
 
 ---
 
