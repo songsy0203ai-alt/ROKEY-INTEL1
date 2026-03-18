@@ -121,7 +121,7 @@ python3 ssy_ws/03_system_monitor/ssy_system_monitor_v12_LLM/app.py
 
 단일 화면에서 3개의 고해상도 실시간 영상을 동시 렌더링하는 과정에서 Flask 서버 및 브라우저 리소스 과부하가 발생했습니다.
 
-* **라우팅 분리**: 메인 페이지와 서브 페이지를 분할하여 페이지당 하나의 실시간 영상 스트림만 렌더링하도록 구조 변경
+* **라우팅 분리**: 사용자 UI의 메인 페이지-LiveFeed 서브 페이지 구조로 분할하여 페이지당 하나의 실시간 영상 스트림만 렌더링하도록 구조 변경
 * **토픽 변경**: 일반 이미지 토픽 → **Compressed 이미지 토픽**으로 전환하여 데이터 송수신량 절감 및 네트워크 안정화
 
 ### 3. LLM 기반 모니터링 UI 아이디어 제안
@@ -132,13 +132,13 @@ AMR 순찰 데이터를 기반으로 **Gemini 1.5 Flash**를 연동한 "오늘�
 
 ## 🏗️ System Architecture
 
-![system_architecture](./04_sys_arch_dgrm /버젼3_ssy.jpg)
+![system_architecture](./04_sys_arch_dgrm/버전3_ssy.jpg)
 
 ---
 
 ## 🌊 Flow Chart
 
-![flow_chart](./04_sys_arch_dgrm /INTEL1_FLOW_CHART.png)
+![flow_chart](./04_sys_arch_dgrm/INTEL1_FLOW_CHART.png)
 
 ---
 
