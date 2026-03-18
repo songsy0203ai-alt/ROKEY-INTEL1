@@ -132,7 +132,13 @@ AMR 순찰 데이터를 기반으로 **Gemini 1.5 Flash**를 연동한 "오늘�
 
 ## 🏗️ System Architecture
 
-> `04_sys_arch_dgrm/` 폴더 내 System Architecture Diagram 참고
+![system_architecture](./04_sys_arch_dgrm /버젼3_ssy.jpg)
+
+---
+
+## 🌊 Flow Chart
+
+![flow_chart](./04_sys_arch_dgrm /INTEL1_FLOW_CHART.png)
 
 ---
 
