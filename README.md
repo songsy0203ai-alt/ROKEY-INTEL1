@@ -152,6 +152,6 @@ AMR 순찰 데이터를 기반으로 **Gemini 1.5 Flash**를 연동한 "오늘�
 
 ---
 
-## 🐈 GitHub Address
+## 🐈 Developers
 
-https://github.com/songsy0203ai-alt/ROKEY-COBOT3
+ROKEY 6기 지능1 APRS팀
